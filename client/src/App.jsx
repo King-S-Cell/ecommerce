@@ -87,13 +87,29 @@ const FALLBACK_PRODUCTS = [
   }
 ];
 
+const STORAGE_CART_KEY = 'nimbus-cart';
+const STORAGE_SESSION_KEY = 'nimbus-session';
+
 function loadCart() {
   try {
-    const saved = window.localStorage.getItem('nimbus-cart');
+    const saved = window.localStorage.getItem(STORAGE_CART_KEY);
     return saved ? JSON.parse(saved) : [];
   } catch {
     return [];
   }
+}
+
+function loadSession() {
+  try {
+    const saved = window.localStorage.getItem(STORAGE_SESSION_KEY);
+    return saved ? JSON.parse(saved) : null;
+  } catch {
+    return null;
+  }
+}
+
+function authHeaders(token) {
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 function App() {
@@ -108,6 +124,16 @@ function App() {
   const [checkoutResult, setCheckoutResult] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [customer, setCustomer] = useState({ name: '', email: '', address: '' });
+  const [session, setSession] = useState(loadSession);
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [authTab, setAuthTab] = useState('customer');
+  const [authMode, setAuthMode] = useState('login');
+  const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' });
+  const [authMessage, setAuthMessage] = useState('');
+  const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [adminOverview, setAdminOverview] = useState(null);
+  const [adminLoading, setAdminLoading] = useState(false);
+  const [adminError, setAdminError] = useState('');
 
   useEffect(() => {
     let ignore = false;
@@ -146,8 +172,104 @@ function App() {
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem('nimbus-cart', JSON.stringify(cart));
+    if (!session?.token) {
+      setSessionLoading(false);
+      return;
+    }
+
+    let ignore = false;
+
+    async function validateSession() {
+      try {
+        const response = await fetch('/api/auth/me', {
+          headers: authHeaders(session.token)
+        });
+
+        if (!response.ok) {
+          throw new Error('Session expired');
+        }
+
+        const data = await response.json();
+
+        if (!ignore) {
+          setSession({ token: session.token, user: data.user });
+        }
+      } catch {
+        if (!ignore) {
+          setSession(null);
+          setAuthMessage('Session expired. Sign in again.');
+        }
+      } finally {
+        if (!ignore) {
+          setSessionLoading(false);
+        }
+      }
+    }
+
+    validateSession();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (session) {
+      window.localStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify(session));
+    } else {
+      window.localStorage.removeItem(STORAGE_SESSION_KEY);
+    }
+  }, [session]);
+
+  useEffect(() => {
+    window.localStorage.setItem(STORAGE_CART_KEY, JSON.stringify(cart));
   }, [cart]);
+
+  useEffect(() => {
+    if (session?.user.role !== 'admin') {
+      setAdminOverview(null);
+      setAdminError('');
+      setAdminLoading(false);
+      return;
+    }
+
+    let ignore = false;
+
+    async function fetchAdminOverview() {
+      setAdminLoading(true);
+      setAdminError('');
+
+      try {
+        const response = await fetch('/api/admin/overview', {
+          headers: authHeaders(session.token)
+        });
+
+        if (!response.ok) {
+          throw new Error('Unable to load admin overview');
+        }
+
+        const data = await response.json();
+
+        if (!ignore) {
+          setAdminOverview(data);
+        }
+      } catch (fetchError) {
+        if (!ignore) {
+          setAdminError(fetchError.message);
+        }
+      } finally {
+        if (!ignore) {
+          setAdminLoading(false);
+        }
+      }
+    }
+
+    fetchAdminOverview();
+
+    return () => {
+      ignore = true;
+    };
+  }, [session]);
 
   const categories = useMemo(() => ['All', ...new Set(products.map((product) => product.category))], [products]);
 
@@ -195,10 +317,87 @@ function App() {
     );
   }
 
+  async function handleAuthSubmit(event) {
+    event.preventDefault();
+
+    const mode = authTab === 'admin' ? 'login' : authMode;
+    const endpoint = mode === 'register' ? '/api/auth/register' : '/api/auth/login';
+
+    if (authTab === 'admin' && mode !== 'login') {
+      return;
+    }
+
+    if (authTab === 'customer' && mode === 'register' && authForm.name.trim().length < 2) {
+      setAuthMessage('Enter a name to register.');
+      return;
+    }
+
+    setAuthSubmitting(true);
+    setAuthMessage('');
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...(mode === 'register' ? { name: authForm.name } : {}),
+          email: authForm.email,
+          password: authForm.password
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Authentication failed');
+      }
+
+      setSession({ token: data.token, user: data.user });
+      setAuthForm((current) => ({
+        ...current,
+        password: ''
+      }));
+
+      if (data.user.role === 'admin') {
+        setAdminError('');
+      }
+    } catch (authError) {
+      setAuthMessage(authError.message);
+    } finally {
+      setAuthSubmitting(false);
+    }
+  }
+
+  function logout() {
+    setSession(null);
+    setAdminOverview(null);
+    setAuthMessage('');
+    setCheckoutOpen(false);
+  }
+
+  function openCheckout() {
+    if (!session) {
+      setAuthTab('customer');
+      setAuthMode('login');
+      setAuthMessage('Sign in as a customer to continue to checkout.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    setCheckoutOpen(true);
+  }
+
   async function handleCheckout(event) {
     event.preventDefault();
 
     if (cart.length === 0) {
+      return;
+    }
+
+    if (!session) {
+      setAuthMessage('Sign in as a customer to place an order.');
+      setCheckoutOpen(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
@@ -207,19 +406,23 @@ function App() {
     try {
       const response = await fetch('/api/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(session.token)
+        },
         body: JSON.stringify({
           cartItems: cart,
           customer
         })
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error('Checkout failed');
+        throw new Error(data.message || 'Checkout failed');
       }
 
-      const result = await response.json();
-      setCheckoutResult(result);
+      setCheckoutResult(data);
       setCart([]);
       setCheckoutOpen(false);
       setCustomer({ name: '', email: '', address: '' });
@@ -230,22 +433,149 @@ function App() {
     }
   }
 
+  const isAdmin = session?.user.role === 'admin';
+  const isCustomer = session?.user.role === 'user';
+
   return (
     <div className="shell">
       <div className="ambient ambient-left" />
       <div className="ambient ambient-right" />
+
+      <section className="auth-shell">
+        <div className="auth-copy">
+          <span className="eyebrow">Access control</span>
+          <h2>Customer sign-in and admin auth, side by side.</h2>
+          <p>
+            Customers can register or log in to place orders. Admins use the seeded account to open a protected
+            dashboard with inventory and customer overview data.
+          </p>
+        </div>
+
+        <div className="auth-card">
+          {sessionLoading ? (
+            <div className="empty-state">Checking session...</div>
+          ) : session ? (
+            <div className="session-card">
+              <div className="session-meta">
+                <span className="section-kicker">Signed in</span>
+                <strong>{session.user.name}</strong>
+                <span>{session.user.email}</span>
+              </div>
+              <div className="role-badge">{session.user.role}</div>
+              <button type="button" className="secondary full" onClick={logout}>
+                Sign out
+              </button>
+            </div>
+          ) : (
+            <form className="auth-form" onSubmit={handleAuthSubmit}>
+              <div className="auth-tabs">
+                <button
+                  type="button"
+                  className={authTab === 'customer' ? 'chip active' : 'chip'}
+                  onClick={() => {
+                    setAuthTab('customer');
+                    setAuthMessage('');
+                  }}
+                >
+                  Customer
+                </button>
+                <button
+                  type="button"
+                  className={authTab === 'admin' ? 'chip active' : 'chip'}
+                  onClick={() => {
+                    setAuthTab('admin');
+                    setAuthMode('login');
+                    setAuthMessage('');
+                  }}
+                >
+                  Admin
+                </button>
+              </div>
+
+              <div className="auth-mode">
+                {authTab === 'customer' ? (
+                  <>
+                    <button
+                      type="button"
+                      className={authMode === 'login' ? 'chip active' : 'chip'}
+                      onClick={() => setAuthMode('login')}
+                    >
+                      Sign in
+                    </button>
+                    <button
+                      type="button"
+                      className={authMode === 'register' ? 'chip active' : 'chip'}
+                      onClick={() => setAuthMode('register')}
+                    >
+                      Register
+                    </button>
+                  </>
+                ) : (
+                  <span className="auth-note">Admin login only</span>
+                )}
+              </div>
+
+              {authTab === 'customer' && authMode === 'register' ? (
+                <label>
+                  Full name
+                  <input
+                    value={authForm.name}
+                    onChange={(event) => setAuthForm({ ...authForm, name: event.target.value })}
+                    autoComplete="name"
+                    required
+                  />
+                </label>
+              ) : null}
+
+              <label>
+                Email
+                <input
+                  type="email"
+                  value={authForm.email}
+                  onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })}
+                  autoComplete="email"
+                  required
+                />
+              </label>
+
+              <label>
+                Password
+                <input
+                  type="password"
+                  value={authForm.password}
+                  onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })}
+                  autoComplete={authMode === 'register' ? 'new-password' : 'current-password'}
+                  minLength="8"
+                  required
+                />
+              </label>
+
+              <button className="primary full" type="submit" disabled={authSubmitting}>
+                {authSubmitting ? 'Working...' : authTab === 'admin' ? 'Admin sign in' : authMode === 'register' ? 'Create account' : 'Sign in'}
+              </button>
+
+              {authMessage ? <div className="notice">{authMessage}</div> : null}
+
+              <div className="auth-help">
+                <span>Admin demo: admin@nimbus.local</span>
+                <span>Password: Admin123!</span>
+              </div>
+            </form>
+          )}
+        </div>
+      </section>
 
       <header className="hero">
         <div className="hero-copy">
           <span className="eyebrow">Nimbus Market</span>
           <h1>Fast, polished commerce for a modern product catalog.</h1>
           <p>
-            A React storefront paired with an Express API, built to showcase products, collect carts,
-            and simulate checkout without unnecessary overhead.
+            A React storefront paired with an Express API, now with customer auth, admin auth, and a protected checkout
+            flow.
           </p>
           <div className="hero-actions">
-            <button className="primary" onClick={() => setCheckoutOpen(true)} type="button">
-              Start checkout
+            <button className="primary" onClick={openCheckout} type="button">
+              {session ? 'Start checkout' : 'Sign in to checkout'}
             </button>
             <button className="secondary" type="button" onClick={() => setCategory('All')}>
               Browse everything
@@ -255,8 +585,8 @@ function App() {
 
         <div className="hero-panel">
           <div>
-            <span className="panel-label">Today&apos;s traffic</span>
-            <strong>8.4k sessions</strong>
+            <span className="panel-label">Session</span>
+            <strong>{session ? `${session.user.role} account` : 'Not signed in'}</strong>
           </div>
           <div>
             <span className="panel-label">Conversion</span>
@@ -268,6 +598,49 @@ function App() {
           </div>
         </div>
       </header>
+
+      {isAdmin ? (
+        <section className="admin-panel">
+          <div className="section-head compact">
+            <div>
+              <span className="section-kicker">Admin dashboard</span>
+              <h2>Store overview</h2>
+            </div>
+            <span className="cart-pill">Protected</span>
+          </div>
+
+          {adminLoading ? <div className="empty-state">Loading admin metrics...</div> : null}
+          {adminError ? <div className="notice">{adminError}</div> : null}
+
+          {adminOverview ? (
+            <div className="admin-grid">
+              <div className="metric-card">
+                <span>Products</span>
+                <strong>{adminOverview.totalProducts}</strong>
+              </div>
+              <div className="metric-card">
+                <span>Customers</span>
+                <strong>{adminOverview.totalCustomers}</strong>
+              </div>
+              <div className="metric-card">
+                <span>Revenue</span>
+                <strong>{currency.format(adminOverview.highlightedRevenue)}</strong>
+              </div>
+              <div className="metric-card wide-card">
+                <span>Low stock</span>
+                <div className="low-stock-list">
+                  {adminOverview.lowStockProducts.map((item) => (
+                    <div key={item.id} className="low-stock-item">
+                      <strong>{item.name}</strong>
+                      <span>{item.stock} left</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       <main className="content">
         <section className="catalog">
@@ -295,10 +668,7 @@ function App() {
             ))}
           </div>
 
-          {loading ? (
-            <div className="empty-state">Loading the storefront...</div>
-          ) : null}
-
+          {loading ? <div className="empty-state">Loading the storefront...</div> : null}
           {error ? <div className="notice">{error}</div> : null}
 
           <div className="grid">
@@ -386,9 +756,10 @@ function App() {
             </div>
           </div>
 
-          <button className="primary full" type="button" onClick={() => setCheckoutOpen(true)} disabled={cart.length === 0}>
-            Continue to checkout
+          <button className="primary full" type="button" onClick={openCheckout} disabled={cart.length === 0}>
+            {session ? 'Continue to checkout' : 'Sign in to checkout'}
           </button>
+          {!isCustomer && !isAdmin ? <div className="notice">Sign in to unlock checkout.</div> : null}
         </aside>
       </main>
 
@@ -492,7 +863,9 @@ function App() {
       {checkoutResult ? (
         <div className="toast">
           <strong>Order confirmed</strong>
-          <span>{checkoutResult.orderId} · arrives in {checkoutResult.estimatedDelivery}</span>
+          <span>
+            {checkoutResult.orderId} · arrives in {checkoutResult.estimatedDelivery}
+          </span>
           <button type="button" className="icon-button" onClick={() => setCheckoutResult(null)}>
             Dismiss
           </button>
