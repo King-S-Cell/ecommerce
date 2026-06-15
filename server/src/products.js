@@ -1,0 +1,80 @@
+module.exports = [
+  {
+    id: 'sku-01',
+    name: 'Atlas Runner',
+    category: 'Footwear',
+    price: 124,
+    rating: 4.9,
+    badge: 'Best seller',
+    stock: 18,
+    accentA: '#ffb36b',
+    accentB: '#ff6f61',
+    description: 'A lightweight everyday runner with responsive cushioning and a sleek city-ready profile.',
+    features: ['Breathable knit upper', 'Energy-return foam', 'All-day grip']
+  },
+  {
+    id: 'sku-02',
+    name: 'Canvas Weekender',
+    category: 'Bags',
+    price: 86,
+    rating: 4.7,
+    badge: 'New arrival',
+    stock: 24,
+    accentA: '#8be0c9',
+    accentB: '#2c9d8f',
+    description: 'A structured carryall with waterproof lining and enough room for a full weekend away.',
+    features: ['Reinforced handles', 'Water-resistant shell', 'Laptop sleeve']
+  },
+  {
+    id: 'sku-03',
+    name: 'Monarch Lamp',
+    category: 'Home',
+    price: 112,
+    rating: 4.8,
+    badge: 'Design pick',
+    stock: 11,
+    accentA: '#f7d06e',
+    accentB: '#c47b2f',
+    description: 'Warm ambient lighting shaped to feel sculptural on a desk, console, or bedside table.',
+    features: ['Warm LED glow', 'Brushed metal base', 'Dimmable control']
+  },
+  {
+    id: 'sku-04',
+    name: 'North Field Jacket',
+    category: 'Apparel',
+    price: 148,
+    rating: 4.6,
+    badge: 'Limited run',
+    stock: 9,
+    accentA: '#9fc5f8',
+    accentB: '#4a69ff',
+    description: 'A weather-ready shell with a tailored fit and practical layering space for changing seasons.',
+    features: ['Storm flap zip', 'Hidden pockets', 'Packable hood']
+  },
+  {
+    id: 'sku-05',
+    name: 'Nova Watch',
+    category: 'Accessories',
+    price: 199,
+    rating: 4.9,
+    badge: 'Editor favorite',
+    stock: 14,
+    accentA: '#e2b1ff',
+    accentB: '#865dff',
+    description: 'A minimalist watch with precision movement and a brushed finish that works with anything.',
+    features: ['Sapphire glass', 'Quick-change strap', 'Water resistant']
+  },
+  {
+    id: 'sku-06',
+    name: 'Field Bottle',
+    category: 'Lifestyle',
+    price: 38,
+    rating: 4.5,
+    badge: 'Popular',
+    stock: 33,
+    accentA: '#9ef0d0',
+    accentB: '#1f8a70',
+    description: 'An insulated bottle that keeps drinks cold for hours and looks good on any desk or trail.',
+    features: ['Double-wall steel', 'Leak-proof cap', 'Easy-carry loop']
+  }
+];
