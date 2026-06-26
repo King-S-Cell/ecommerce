@@ -27,3 +27,9 @@ The API runs on `http://localhost:4000` and the client runs on `http://localhost
 - Customer accounts can register and sign in from the app.
 - Admin access is seeded with `admin@nimbus.local` / `Admin123!`.
 - Checkout requires a signed-in user token.
+
+## MongoDB
+
+- Copy `server/.env.example` to `server/.env` when you are ready.
+- Set `MONGODB_URI` to your MongoDB connection string later.
+- If `MONGODB_URI` is empty, the server falls back to in-memory auth storage for local development.

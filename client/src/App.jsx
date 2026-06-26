@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import AdminDashboard from './AdminDashboard';
 
 const currency = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -131,14 +132,14 @@ function App() {
   const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' });
   const [authMessage, setAuthMessage] = useState('');
   const [authSubmitting, setAuthSubmitting] = useState(false);
-  const [adminOverview, setAdminOverview] = useState(null);
-  const [adminLoading, setAdminLoading] = useState(false);
-  const [adminError, setAdminError] = useState('');
+  const [inventoryVersion, setInventoryVersion] = useState(0);
 
   useEffect(() => {
     let ignore = false;
 
     async function fetchProducts() {
+      setLoading(true);
+
       try {
         const response = await fetch('/api/products');
 
@@ -169,7 +170,7 @@ function App() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [inventoryVersion]);
 
   useEffect(() => {
     if (!session?.token) {
@@ -224,52 +225,6 @@ function App() {
   useEffect(() => {
     window.localStorage.setItem(STORAGE_CART_KEY, JSON.stringify(cart));
   }, [cart]);
-
-  useEffect(() => {
-    if (session?.user.role !== 'admin') {
-      setAdminOverview(null);
-      setAdminError('');
-      setAdminLoading(false);
-      return;
-    }
-
-    let ignore = false;
-
-    async function fetchAdminOverview() {
-      setAdminLoading(true);
-      setAdminError('');
-
-      try {
-        const response = await fetch('/api/admin/overview', {
-          headers: authHeaders(session.token)
-        });
-
-        if (!response.ok) {
-          throw new Error('Unable to load admin overview');
-        }
-
-        const data = await response.json();
-
-        if (!ignore) {
-          setAdminOverview(data);
-        }
-      } catch (fetchError) {
-        if (!ignore) {
-          setAdminError(fetchError.message);
-        }
-      } finally {
-        if (!ignore) {
-          setAdminLoading(false);
-        }
-      }
-    }
-
-    fetchAdminOverview();
-
-    return () => {
-      ignore = true;
-    };
-  }, [session]);
 
   const categories = useMemo(() => ['All', ...new Set(products.map((product) => product.category))], [products]);
 
@@ -357,10 +312,6 @@ function App() {
         ...current,
         password: ''
       }));
-
-      if (data.user.role === 'admin') {
-        setAdminError('');
-      }
     } catch (authError) {
       setAuthMessage(authError.message);
     } finally {
@@ -370,7 +321,6 @@ function App() {
 
   function logout() {
     setSession(null);
-    setAdminOverview(null);
     setAuthMessage('');
     setCheckoutOpen(false);
   }
@@ -447,7 +397,7 @@ function App() {
           <h2>Customer sign-in and admin auth, side by side.</h2>
           <p>
             Customers can register or log in to place orders. Admins use the seeded account to open a protected
-            dashboard with inventory and customer overview data.
+            dashboard with product, order, and user management.
           </p>
         </div>
 
@@ -600,46 +550,7 @@ function App() {
       </header>
 
       {isAdmin ? (
-        <section className="admin-panel">
-          <div className="section-head compact">
-            <div>
-              <span className="section-kicker">Admin dashboard</span>
-              <h2>Store overview</h2>
-            </div>
-            <span className="cart-pill">Protected</span>
-          </div>
-
-          {adminLoading ? <div className="empty-state">Loading admin metrics...</div> : null}
-          {adminError ? <div className="notice">{adminError}</div> : null}
-
-          {adminOverview ? (
-            <div className="admin-grid">
-              <div className="metric-card">
-                <span>Products</span>
-                <strong>{adminOverview.totalProducts}</strong>
-              </div>
-              <div className="metric-card">
-                <span>Customers</span>
-                <strong>{adminOverview.totalCustomers}</strong>
-              </div>
-              <div className="metric-card">
-                <span>Revenue</span>
-                <strong>{currency.format(adminOverview.highlightedRevenue)}</strong>
-              </div>
-              <div className="metric-card wide-card">
-                <span>Low stock</span>
-                <div className="low-stock-list">
-                  {adminOverview.lowStockProducts.map((item) => (
-                    <div key={item.id} className="low-stock-item">
-                      <strong>{item.name}</strong>
-                      <span>{item.stock} left</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : null}
-        </section>
+        <AdminDashboard token={session.token} onInventoryChanged={() => setInventoryVersion((value) => value + 1)} />
       ) : null}
 
       <main className="content">
@@ -864,7 +775,7 @@ function App() {
         <div className="toast">
           <strong>Order confirmed</strong>
           <span>
-            {checkoutResult.orderId} · arrives in {checkoutResult.estimatedDelivery}
+            {checkoutResult.orderId || checkoutResult.id} · arrives in {checkoutResult.estimatedDelivery}
           </span>
           <button type="button" className="icon-button" onClick={() => setCheckoutResult(null)}>
             Dismiss
