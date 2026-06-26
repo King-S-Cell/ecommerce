@@ -13,7 +13,8 @@ const productSchema = new mongoose.Schema(
     accentA: { type: String, required: true },
     accentB: { type: String, required: true },
     description: { type: String, required: true },
-    features: { type: [String], default: [] }
+    features: { type: [String], default: [] },
+    imageUrl: { type: String, default: '' }
   },
   { timestamps: true }
 );
@@ -44,6 +45,7 @@ function toPlainProduct(product) {
     accentB: plainProduct.accentB,
     description: plainProduct.description,
     features: plainProduct.features || [],
+    imageUrl: plainProduct.imageUrl || '',
     createdAt: plainProduct.createdAt,
     updatedAt: plainProduct.updatedAt
   };
@@ -62,7 +64,8 @@ function normalizeProductInput(input) {
     description: String(input.description || '').trim(),
     features: Array.isArray(input.features)
       ? input.features.map((feature) => String(feature).trim()).filter(Boolean)
-      : []
+      : [],
+    imageUrl: String(input.imageUrl || '').trim()
   };
 }
 

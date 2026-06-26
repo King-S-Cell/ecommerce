@@ -22,7 +22,8 @@ export default function AdminDashboard({ token, onInventoryChanged }) {
     accentA: '#dddddd',
     accentB: '#333333',
     description: '',
-    features: ''
+    features: '',
+    imageUrl: ''
   };
 
   const [newProduct, setNewProduct] = useState(emptyProduct);
@@ -68,7 +69,8 @@ export default function AdminDashboard({ token, onInventoryChanged }) {
       accentA: String(product.accentA || '').trim(),
       accentB: String(product.accentB || '').trim(),
       description: String(product.description || '').trim(),
-      features: String(product.features || '').split(',').map((f) => f.trim()).filter(Boolean)
+      features: String(product.features || '').split(',').map((f) => f.trim()).filter(Boolean),
+      imageUrl: String(product.imageUrl || '').trim()
     };
   }
 
@@ -109,7 +111,8 @@ export default function AdminDashboard({ token, onInventoryChanged }) {
       accentA: p.accentA || '#dddddd',
       accentB: p.accentB || '#333333',
       description: p.description || '',
-      features: Array.isArray(p.features) ? p.features.join(', ') : (p.features || '')
+      features: Array.isArray(p.features) ? p.features.join(', ') : (p.features || ''),
+      imageUrl: p.imageUrl || ''
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -231,6 +234,14 @@ export default function AdminDashboard({ token, onInventoryChanged }) {
               <input placeholder="Accent B (hex)" value={editProduct.accentB} onChange={(e) => setEditProduct({ ...editProduct, accentB: e.target.value })} />
               <input placeholder="Description" value={editProduct.description} onChange={(e) => setEditProduct({ ...editProduct, description: e.target.value })} />
               <input placeholder="Features (comma separated)" value={editProduct.features} onChange={(e) => setEditProduct({ ...editProduct, features: e.target.value })} />
+              <input placeholder="Image URL" value={editProduct.imageUrl} onChange={(e) => setEditProduct({ ...editProduct, imageUrl: e.target.value })} />
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginTop: '0.25rem' }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: `linear-gradient(135deg, ${editProduct.accentA || '#ddd'}, ${editProduct.accentB || '#333'})`, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.2)' }} />
+                <div style={{ color: '#b9c2e2', fontSize: '0.9rem' }}>
+                  <div>{editProduct.accentA || '#dddddd'} / {editProduct.accentB || '#333333'}</div>
+                  <div>Preview colors</div>
+                </div>
+              </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button className="primary" type="submit">Save changes</button>
                 <button type="button" className="secondary" onClick={() => setEditProduct(null)}>Cancel</button>
@@ -249,6 +260,14 @@ export default function AdminDashboard({ token, onInventoryChanged }) {
               <input placeholder="Accent B (hex)" value={newProduct.accentB} onChange={(e) => setNewProduct({ ...newProduct, accentB: e.target.value })} />
               <input placeholder="Description" value={newProduct.description} onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })} />
               <input placeholder="Features (comma separated)" value={newProduct.features} onChange={(e) => setNewProduct({ ...newProduct, features: e.target.value })} />
+              <input placeholder="Image URL" value={newProduct.imageUrl} onChange={(e) => setNewProduct({ ...newProduct, imageUrl: e.target.value })} />
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginTop: '0.25rem' }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: `linear-gradient(135deg, ${newProduct.accentA || '#ddd'}, ${newProduct.accentB || '#333'})`, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.2)' }} />
+                <div style={{ color: '#b9c2e2', fontSize: '0.9rem' }}>
+                  <div>{newProduct.accentA || '#dddddd'} / {newProduct.accentB || '#333333'}</div>
+                  <div>Preview colors</div>
+                </div>
+              </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button className="primary" type="submit">Create</button>
                 <button type="button" className="secondary" onClick={() => setNewProduct(emptyProduct)}>Reset</button>
@@ -260,6 +279,13 @@ export default function AdminDashboard({ token, onInventoryChanged }) {
             {products.map((p) => (
               <article key={p.id} className="product-card" style={{ '--accent-a': p.accentA || '#ddd', '--accent-b': p.accentB || '#333' }}>
                 <div className="product-copy">
+                  <div style={{ marginBottom: '0.75rem', borderRadius: 16, overflow: 'hidden', minHeight: 130, background: `linear-gradient(135deg, ${p.accentA || '#ddd'}, ${p.accentB || '#333'})`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {p.imageUrl ? (
+                      <img src={p.imageUrl} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <span style={{ color: 'white', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{p.badge || 'Preview'}</span>
+                    )}
+                  </div>
                   <div className="product-meta">
                     <span>{p.category}</span>
                     <span>{p.rating} stars</span>

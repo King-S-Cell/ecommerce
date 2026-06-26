@@ -73,6 +73,16 @@ function validateProductPayload(body) {
   const accentB = String(body.accentB || '').trim();
   const description = String(body.description || '').trim();
   const features = normalizeFeatures(body.features);
+  const imageUrl = String(body.imageUrl || '').trim();
+  const normalizedImageUrl = imageUrl
+    ? (() => {
+        try {
+          return new URL(imageUrl).toString();
+        } catch {
+          return '';
+        }
+      })()
+    : '';
 
   if (!name || !category || !badge || !accentA || !accentB || !description) {
     return null;
@@ -92,7 +102,8 @@ function validateProductPayload(body) {
     accentA,
     accentB,
     description,
-    features
+    features,
+    imageUrl: normalizedImageUrl
   };
 }
 
