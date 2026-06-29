@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 let connectionPromise = null;
 
 async function connectDatabase() {
-  const mongoUri = process.env.MONGODB_URI;
+  const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
 
   if (!mongoUri) {
     return { connected: false, mode: 'memory' };

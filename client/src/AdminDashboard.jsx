@@ -69,9 +69,26 @@ export default function AdminDashboard({ token, onInventoryChanged }) {
       accentA: String(product.accentA || '').trim(),
       accentB: String(product.accentB || '').trim(),
       description: String(product.description || '').trim(),
-      features: String(product.features || '').split(',').map((f) => f.trim()).filter(Boolean),
+      features: String(product.features || '').split(',').map((feature) => feature.trim()).filter(Boolean),
       imageUrl: String(product.imageUrl || '').trim()
     };
+  }
+
+  function handleImageSelection(event, setter) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const dataUrl = typeof reader.result === 'string' ? reader.result : '';
+      setter((current) => ({ ...current, imageUrl: dataUrl }));
+    };
+
+    reader.readAsDataURL(file);
   }
 
   async function createProduct(event) {
@@ -90,8 +107,8 @@ export default function AdminDashboard({ token, onInventoryChanged }) {
 
       if (!res.ok) throw new Error(data.message || 'Failed to create product');
 
-      setProducts((p) => [data, ...p]);
-      setNewProduct(emptyProduct);
+      setProducts((list) => [data, ...list]);
+      setNewProduct({ ...emptyProduct });
       setMessage('Product created');
       onInventoryChanged && onInventoryChanged();
     } catch (err) {
@@ -99,20 +116,20 @@ export default function AdminDashboard({ token, onInventoryChanged }) {
     }
   }
 
-  function startEdit(p) {
+  function startEdit(product) {
     setEditProduct({
-      id: p.id,
-      name: p.name || '',
-      category: p.category || '',
-      price: p.price || 0,
-      rating: p.rating || 4.5,
-      badge: p.badge || '',
-      stock: p.stock || 0,
-      accentA: p.accentA || '#dddddd',
-      accentB: p.accentB || '#333333',
-      description: p.description || '',
-      features: Array.isArray(p.features) ? p.features.join(', ') : (p.features || ''),
-      imageUrl: p.imageUrl || ''
+      id: product.id,
+      name: product.name || '',
+      category: product.category || '',
+      price: product.price || 0,
+      rating: product.rating || 4.5,
+      badge: product.badge || '',
+      stock: product.stock || 0,
+      accentA: product.accentA || '#dddddd',
+      accentB: product.accentB || '#333333',
+      description: product.description || '',
+      features: Array.isArray(product.features) ? product.features.join(', ') : (product.features || ''),
+      imageUrl: product.imageUrl || ''
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -133,7 +150,7 @@ export default function AdminDashboard({ token, onInventoryChanged }) {
 
       if (!res.ok) throw new Error(data.message || 'Failed to update product');
 
-      setProducts((list) => list.map((x) => (x.id === data.id ? data : x)));
+      setProducts((list) => list.map((item) => (item.id === data.id ? data : item)));
       setEditProduct(null);
       setMessage('Product updated');
       onInventoryChanged && onInventoryChanged();
@@ -153,7 +170,7 @@ export default function AdminDashboard({ token, onInventoryChanged }) {
 
       if (!res.ok) throw new Error('Delete failed');
 
-      setProducts((p) => p.filter((x) => x.id !== id));
+      setProducts((list) => list.filter((item) => item.id !== id));
       setMessage('Product deleted');
       onInventoryChanged && onInventoryChanged();
     } catch (err) {
@@ -172,7 +189,7 @@ export default function AdminDashboard({ token, onInventoryChanged }) {
       if (!res.ok) throw new Error('Update failed');
 
       const updated = await res.json();
-      setOrders((list) => list.map((o) => (o.id === updated.id ? updated : o)));
+      setOrders((list) => list.map((item) => (item.id === updated.id ? updated : item)));
       setMessage('Order updated');
     } catch (err) {
       setMessage(err.message || 'Failed');
@@ -190,7 +207,7 @@ export default function AdminDashboard({ token, onInventoryChanged }) {
       if (!res.ok) throw new Error('Update failed');
 
       const updated = await res.json();
-      setUsers((list) => list.map((u) => (u.id === updated.id ? updated : u)));
+      setUsers((list) => list.map((item) => (item.id === updated.id ? updated : item)));
       setMessage('User updated');
     } catch (err) {
       setMessage(err.message || 'Failed');
@@ -224,17 +241,23 @@ export default function AdminDashboard({ token, onInventoryChanged }) {
           {editProduct ? (
             <form onSubmit={submitEdit} style={{ display: 'grid', gap: '0.5rem', marginBottom: '1rem' }}>
               <strong>Edit product</strong>
-              <input placeholder="Name" value={editProduct.name} onChange={(e) => setEditProduct({ ...editProduct, name: e.target.value })} required />
-              <input placeholder="Category" value={editProduct.category} onChange={(e) => setEditProduct({ ...editProduct, category: e.target.value })} required />
-              <input placeholder="Price" type="number" value={editProduct.price} onChange={(e) => setEditProduct({ ...editProduct, price: Number(e.target.value) })} />
-              <input placeholder="Rating (0-5)" type="number" step="0.1" min="0" max="5" value={editProduct.rating} onChange={(e) => setEditProduct({ ...editProduct, rating: Number(e.target.value) })} />
-              <input placeholder="Badge" value={editProduct.badge} onChange={(e) => setEditProduct({ ...editProduct, badge: e.target.value })} />
-              <input placeholder="Stock" type="number" value={editProduct.stock} onChange={(e) => setEditProduct({ ...editProduct, stock: Number(e.target.value) })} />
-              <input placeholder="Accent A (hex)" value={editProduct.accentA} onChange={(e) => setEditProduct({ ...editProduct, accentA: e.target.value })} />
-              <input placeholder="Accent B (hex)" value={editProduct.accentB} onChange={(e) => setEditProduct({ ...editProduct, accentB: e.target.value })} />
-              <input placeholder="Description" value={editProduct.description} onChange={(e) => setEditProduct({ ...editProduct, description: e.target.value })} />
-              <input placeholder="Features (comma separated)" value={editProduct.features} onChange={(e) => setEditProduct({ ...editProduct, features: e.target.value })} />
-              <input placeholder="Image URL" value={editProduct.imageUrl} onChange={(e) => setEditProduct({ ...editProduct, imageUrl: e.target.value })} />
+              <input placeholder="Name" value={editProduct.name} onChange={(event) => setEditProduct({ ...editProduct, name: event.target.value })} required />
+              <input placeholder="Category" value={editProduct.category} onChange={(event) => setEditProduct({ ...editProduct, category: event.target.value })} required />
+              <input placeholder="Price" type="number" value={editProduct.price} onChange={(event) => setEditProduct({ ...editProduct, price: Number(event.target.value) })} />
+              <input placeholder="Rating (0-5)" type="number" step="0.1" min="0" max="5" value={editProduct.rating} onChange={(event) => setEditProduct({ ...editProduct, rating: Number(event.target.value) })} />
+              <input placeholder="Badge" value={editProduct.badge} onChange={(event) => setEditProduct({ ...editProduct, badge: event.target.value })} />
+              <input placeholder="Stock" type="number" value={editProduct.stock} onChange={(event) => setEditProduct({ ...editProduct, stock: Number(event.target.value) })} />
+              <input placeholder="Accent A (hex)" value={editProduct.accentA} onChange={(event) => setEditProduct({ ...editProduct, accentA: event.target.value })} />
+              <input placeholder="Accent B (hex)" value={editProduct.accentB} onChange={(event) => setEditProduct({ ...editProduct, accentB: event.target.value })} />
+              <input placeholder="Description" value={editProduct.description} onChange={(event) => setEditProduct({ ...editProduct, description: event.target.value })} />
+              <input placeholder="Features (comma separated)" value={editProduct.features} onChange={(event) => setEditProduct({ ...editProduct, features: event.target.value })} />
+              <label style={{ display: 'grid', gap: '0.35rem', color: '#b9c2e2', fontSize: '0.9rem' }}>
+                <span>Choose image from device</span>
+                <input type="file" accept="image/*" onChange={(event) => handleImageSelection(event, setEditProduct)} />
+              </label>
+              {editProduct.imageUrl ? (
+                <img src={editProduct.imageUrl} alt="Selected preview" style={{ width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 14 }} />
+              ) : null}
               <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginTop: '0.25rem' }}>
                 <div style={{ width: 44, height: 44, borderRadius: 12, background: `linear-gradient(135deg, ${editProduct.accentA || '#ddd'}, ${editProduct.accentB || '#333'})`, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.2)' }} />
                 <div style={{ color: '#b9c2e2', fontSize: '0.9rem' }}>
@@ -250,17 +273,23 @@ export default function AdminDashboard({ token, onInventoryChanged }) {
           ) : (
             <form onSubmit={createProduct} style={{ display: 'grid', gap: '0.5rem', marginBottom: '1rem' }}>
               <strong>Create new product</strong>
-              <input placeholder="Name" value={newProduct.name} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} required />
-              <input placeholder="Category" value={newProduct.category} onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })} required />
-              <input placeholder="Price" type="number" value={newProduct.price} onChange={(e) => setNewProduct({ ...newProduct, price: Number(e.target.value) })} />
-              <input placeholder="Rating (0-5)" type="number" step="0.1" min="0" max="5" value={newProduct.rating} onChange={(e) => setNewProduct({ ...newProduct, rating: Number(e.target.value) })} />
-              <input placeholder="Badge" value={newProduct.badge} onChange={(e) => setNewProduct({ ...newProduct, badge: e.target.value })} />
-              <input placeholder="Stock" type="number" value={newProduct.stock} onChange={(e) => setNewProduct({ ...newProduct, stock: Number(e.target.value) })} />
-              <input placeholder="Accent A (hex)" value={newProduct.accentA} onChange={(e) => setNewProduct({ ...newProduct, accentA: e.target.value })} />
-              <input placeholder="Accent B (hex)" value={newProduct.accentB} onChange={(e) => setNewProduct({ ...newProduct, accentB: e.target.value })} />
-              <input placeholder="Description" value={newProduct.description} onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })} />
-              <input placeholder="Features (comma separated)" value={newProduct.features} onChange={(e) => setNewProduct({ ...newProduct, features: e.target.value })} />
-              <input placeholder="Image URL" value={newProduct.imageUrl} onChange={(e) => setNewProduct({ ...newProduct, imageUrl: e.target.value })} />
+              <input placeholder="Name" value={newProduct.name} onChange={(event) => setNewProduct({ ...newProduct, name: event.target.value })} required />
+              <input placeholder="Category" value={newProduct.category} onChange={(event) => setNewProduct({ ...newProduct, category: event.target.value })} required />
+              <input placeholder="Price" type="number" value={newProduct.price} onChange={(event) => setNewProduct({ ...newProduct, price: Number(event.target.value) })} />
+              <input placeholder="Rating (0-5)" type="number" step="0.1" min="0" max="5" value={newProduct.rating} onChange={(event) => setNewProduct({ ...newProduct, rating: Number(event.target.value) })} />
+              <input placeholder="Badge" value={newProduct.badge} onChange={(event) => setNewProduct({ ...newProduct, badge: event.target.value })} />
+              <input placeholder="Stock" type="number" value={newProduct.stock} onChange={(event) => setNewProduct({ ...newProduct, stock: Number(event.target.value) })} />
+              <input placeholder="Accent A (hex)" value={newProduct.accentA} onChange={(event) => setNewProduct({ ...newProduct, accentA: event.target.value })} />
+              <input placeholder="Accent B (hex)" value={newProduct.accentB} onChange={(event) => setNewProduct({ ...newProduct, accentB: event.target.value })} />
+              <input placeholder="Description" value={newProduct.description} onChange={(event) => setNewProduct({ ...newProduct, description: event.target.value })} />
+              <input placeholder="Features (comma separated)" value={newProduct.features} onChange={(event) => setNewProduct({ ...newProduct, features: event.target.value })} />
+              <label style={{ display: 'grid', gap: '0.35rem', color: '#b9c2e2', fontSize: '0.9rem' }}>
+                <span>Choose image from device</span>
+                <input type="file" accept="image/*" onChange={(event) => handleImageSelection(event, setNewProduct)} />
+              </label>
+              {newProduct.imageUrl ? (
+                <img src={newProduct.imageUrl} alt="Selected preview" style={{ width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 14 }} />
+              ) : null}
               <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginTop: '0.25rem' }}>
                 <div style={{ width: 44, height: 44, borderRadius: 12, background: `linear-gradient(135deg, ${newProduct.accentA || '#ddd'}, ${newProduct.accentB || '#333'})`, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.2)' }} />
                 <div style={{ color: '#b9c2e2', fontSize: '0.9rem' }}>
@@ -270,36 +299,36 @@ export default function AdminDashboard({ token, onInventoryChanged }) {
               </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button className="primary" type="submit">Create</button>
-                <button type="button" className="secondary" onClick={() => setNewProduct(emptyProduct)}>Reset</button>
+                <button type="button" className="secondary" onClick={() => setNewProduct({ ...emptyProduct })}>Reset</button>
               </div>
             </form>
           )}
 
           <div className="grid">
-            {products.map((p) => (
-              <article key={p.id} className="product-card" style={{ '--accent-a': p.accentA || '#ddd', '--accent-b': p.accentB || '#333' }}>
+            {products.map((product) => (
+              <article key={product.id} className="product-card" style={{ '--accent-a': product.accentA || '#ddd', '--accent-b': product.accentB || '#333' }}>
                 <div className="product-copy">
-                  <div style={{ marginBottom: '0.75rem', borderRadius: 16, overflow: 'hidden', minHeight: 130, background: `linear-gradient(135deg, ${p.accentA || '#ddd'}, ${p.accentB || '#333'})`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {p.imageUrl ? (
-                      <img src={p.imageUrl} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <div style={{ marginBottom: '0.75rem', borderRadius: 16, overflow: 'hidden', minHeight: 130, background: `linear-gradient(135deg, ${product.accentA || '#ddd'}, ${product.accentB || '#333'})`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {product.imageUrl ? (
+                      <img src={product.imageUrl} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
-                      <span style={{ color: 'white', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{p.badge || 'Preview'}</span>
+                      <span style={{ color: 'white', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{product.badge || 'Preview'}</span>
                     )}
                   </div>
                   <div className="product-meta">
-                    <span>{p.category}</span>
-                    <span>{p.rating} stars</span>
+                    <span>{product.category}</span>
+                    <span>{product.rating} stars</span>
                   </div>
-                  <h3>{p.name}</h3>
-                  <p>{p.description || ''}</p>
+                  <h3>{product.name}</h3>
+                  <p>{product.description || ''}</p>
                   <div className="product-footer">
-                    <strong>${p.price}</strong>
-                    <span>{p.stock} left</span>
+                    <strong>${product.price}</strong>
+                    <span>{product.stock} left</span>
                   </div>
                   <div className="card-actions">
-                    <button className="secondary small" type="button" onClick={() => navigator.clipboard.writeText(p.id)}>Copy ID</button>
-                    <button className="secondary small" type="button" onClick={() => startEdit(p)}>Edit</button>
-                    <button className="secondary small" type="button" onClick={() => deleteProduct(p.id)}>Delete</button>
+                    <button className="secondary small" type="button" onClick={() => navigator.clipboard.writeText(product.id)}>Copy ID</button>
+                    <button className="secondary small" type="button" onClick={() => startEdit(product)}>Edit</button>
+                    <button className="secondary small" type="button" onClick={() => deleteProduct(product.id)}>Delete</button>
                   </div>
                 </div>
               </article>
@@ -312,21 +341,21 @@ export default function AdminDashboard({ token, onInventoryChanged }) {
         <div>
           {orders.length === 0 ? <div className="empty-state">No orders yet</div> : null}
           <div style={{ display: 'grid', gap: '0.75rem', marginTop: '1rem' }}>
-            {orders.map((o) => (
-              <div key={o.id} className="metric-card">
+            {orders.map((order) => (
+              <div key={order.id} className="metric-card">
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <strong>{o.orderId}</strong>
-                  <span>{o.status}</span>
+                  <strong>{order.orderId}</strong>
+                  <span>{order.status}</span>
                 </div>
-                <div style={{ color: '#9aa3c8' }}>{o.customer?.email}</div>
+                <div style={{ color: '#9aa3c8' }}>{order.customer?.email}</div>
                 <div>
-                  <div>Items: {o.items?.length || 0}</div>
-                  <div>Subtotal: ${o.subtotal}</div>
+                  <div>Items: {order.items?.length || 0}</div>
+                  <div>Subtotal: ${order.subtotal}</div>
                 </div>
                 <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem' }}>
-                  <button className="secondary small" onClick={() => updateOrderStatus(o.id, 'processing')}>Processing</button>
-                  <button className="secondary small" onClick={() => updateOrderStatus(o.id, 'shipped')}>Shipped</button>
-                  <button className="secondary small" onClick={() => updateOrderStatus(o.id, 'delivered')}>Delivered</button>
+                  <button className="secondary small" onClick={() => updateOrderStatus(order.id, 'processing')}>Processing</button>
+                  <button className="secondary small" onClick={() => updateOrderStatus(order.id, 'shipped')}>Shipped</button>
+                  <button className="secondary small" onClick={() => updateOrderStatus(order.id, 'delivered')}>Delivered</button>
                 </div>
               </div>
             ))}
@@ -338,14 +367,14 @@ export default function AdminDashboard({ token, onInventoryChanged }) {
         <div>
           {users.length === 0 ? <div className="empty-state">No users yet</div> : null}
           <div style={{ display: 'grid', gap: '0.5rem', marginTop: '1rem' }}>
-            {users.map((u) => (
-              <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center', padding: '0.75rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)' }}>
+            {users.map((user) => (
+              <div key={user.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center', padding: '0.75rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)' }}>
                 <div>
-                  <strong>{u.name}</strong>
-                  <div style={{ color: '#9aa3c8' }}>{u.email}</div>
+                  <strong>{user.name}</strong>
+                  <div style={{ color: '#9aa3c8' }}>{user.email}</div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <select value={u.role} onChange={(e) => updateUserRole(u.id, e.target.value)}>
+                  <select value={user.role} onChange={(event) => updateUserRole(user.id, event.target.value)}>
                     <option value="user">user</option>
                     <option value="admin">admin</option>
                   </select>
