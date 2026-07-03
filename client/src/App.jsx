@@ -215,6 +215,33 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get('session_id');
+    const success = params.get('payment_success');
+
+    if (!success || !sessionId) {
+      return;
+    }
+
+    async function completePayment() {
+      try {
+        const response = await fetch(`/api/payments/complete?session_id=${encodeURIComponent(sessionId)}`);
+        const data = await response.json();
+
+        if (response.ok) {
+          setCheckoutResult(data.order || data);
+          setCart([]);
+          setError('Payment completed successfully.');
+        }
+      } catch (err) {
+        setError(err.message || 'Payment completion failed');
+      }
+    }
+
+    completePayment();
+  }, [session]);
+
+  useEffect(() => {
     if (session) {
       window.localStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify(session));
     } else {
@@ -372,7 +399,12 @@ function App() {
         throw new Error(data.message || 'Checkout failed');
       }
 
-      setCheckoutResult(data);
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+        return;
+      }
+
+      setCheckoutResult(data.order || data);
       setCart([]);
       setCheckoutOpen(false);
       setCustomer({ name: '', email: '', address: '' });

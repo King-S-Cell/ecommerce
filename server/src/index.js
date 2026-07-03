@@ -4,6 +4,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const bcrypt = require('bcryptjs');
+const Stripe = require('stripe');
 const { connectDatabase } = require('./db');
 const {
   authenticateRequest,
@@ -35,6 +36,8 @@ const {
 
 const app = express();
 const port = process.env.PORT || 4000;
+const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+const stripe = process.env.STRIPE_SECRET_KEY ? Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -389,7 +392,64 @@ app.post(
       status: 'pending'
     });
 
-    return response.status(201).json(order);
+    if (!stripe) {
+      return response.status(201).json(order);
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode: 'payment',
+      customer_email: customer.email || user.email,
+      line_items: normalizedItems.map((item) => ({
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: item.name,
+            metadata: { productId: item.productId }
+          },
+          unit_amount: Math.round(item.price * 100)
+        },
+        quantity: item.quantity
+      })),
+      metadata: {
+        orderId: order.orderId
+      },
+      success_url: `${clientUrl}/?payment_success=true&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${clientUrl}/?payment_canceled=true`
+    });
+
+    return response.status(201).json({ order, checkoutUrl: session.url });
+  })
+);
+
+app.get(
+  '/api/payments/complete',
+  wrapAsync(async (request, response) => {
+    if (!stripe) {
+      return response.status(501).json({ message: 'Stripe is not configured' });
+    }
+
+    const sessionId = String(request.query.session_id || '').trim();
+
+    if (!sessionId) {
+      return response.status(400).json({ message: 'Missing session_id' });
+    }
+
+    const stripeSession = await stripe.checkout.sessions.retrieve(sessionId);
+
+    if (!stripeSession || stripeSession.payment_status !== 'paid') {
+      return response.status(400).json({ message: 'Payment not completed' });
+    }
+
+    const orderId = stripeSession.metadata?.orderId;
+
+    if (!orderId) {
+      return response.status(400).json({ message: 'Order metadata missing' });
+    }
+
+    await updateOrderStatus(orderId, 'paid');
+    const order = await listOrders();
+    return response.json({ order: order.find((item) => item.orderId === orderId) });
   })
 );
 
