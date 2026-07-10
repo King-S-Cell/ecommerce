@@ -133,10 +133,8 @@ function App() {
   const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' });
   const [authMessage, setAuthMessage] = useState('');
   const [authSubmitting, setAuthSubmitting] = useState(false);
-  const [profileForm, setProfileForm] = useState({ name: '', email: '', password: '' });
-  const [profileMessage, setProfileMessage] = useState('');
-  const [profileSubmitting, setProfileSubmitting] = useState(false);
   const [inventoryVersion, setInventoryVersion] = useState(0);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
 
   useEffect(() => {
     let ignore = false;
@@ -219,14 +217,19 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (session?.user) {
-      setProfileForm({
-        name: session.user.name || '',
-        email: session.user.email || '',
-        password: ''
-      });
+    if (!accountMenuOpen) {
+      return;
     }
-  }, [session?.user?.id, session?.user?.email, session?.user?.name]);
+
+    function handleClick(event) {
+      if (!event.target.closest('.account-menu-wrapper')) {
+        setAccountMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, [accountMenuOpen]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -360,57 +363,11 @@ function App() {
     }
   }
 
-  async function handleProfileSubmit(event) {
-    event.preventDefault();
-
-    if (!session?.token) {
-      return;
-    }
-
-    const trimmedName = profileForm.name.trim();
-    const trimmedEmail = profileForm.email.trim().toLowerCase();
-    const password = profileForm.password;
-    const payload = {
-      ...(trimmedName ? { name: trimmedName } : {}),
-      ...(trimmedEmail ? { email: trimmedEmail } : {}),
-      ...(password ? { password } : {})
-    };
-
-    if (!Object.keys(payload).length) {
-      setProfileMessage('Add a name, email, or new password to update your account.');
-      return;
-    }
-
-    setProfileSubmitting(true);
-    setProfileMessage('');
-
-    try {
-      const response = await fetch('/api/auth/me', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...authHeaders(session.token) },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Profile update failed');
-      }
-
-      setSession((current) => (current ? { ...current, user: data.user } : current));
-      setProfileForm((current) => ({ ...current, password: '' }));
-      setProfileMessage('Profile updated.');
-    } catch (profileError) {
-      setProfileMessage(profileError.message);
-    } finally {
-      setProfileSubmitting(false);
-    }
-  }
-
   function logout() {
     setSession(null);
     setAuthMessage('');
     setCheckoutOpen(false);
+    setAccountMenuOpen(false);
   }
 
   function openCheckout() {
@@ -504,27 +461,37 @@ function App() {
                 <span>{session.user.email}</span>
               </div>
               <div className="role-badge">{session.user.role}</div>
-              <form className="auth-form" onSubmit={handleProfileSubmit} style={{ marginTop: '1rem' }}>
-                <label>
-                  Full name
-                  <input value={profileForm.name} onChange={(event) => setProfileForm({ ...profileForm, name: event.target.value })} />
-                </label>
-                <label>
-                  Email
-                  <input type="email" value={profileForm.email} onChange={(event) => setProfileForm({ ...profileForm, email: event.target.value })} />
-                </label>
-                <label>
-                  New password
-                  <input type="password" value={profileForm.password} onChange={(event) => setProfileForm({ ...profileForm, password: event.target.value })} autoComplete="new-password" />
-                </label>
-                <button className="primary full" type="submit" disabled={profileSubmitting}>
-                  {profileSubmitting ? 'Saving...' : 'Save profile'}
+              <div className="account-menu-wrapper">
+                <button type="button" className="secondary full account-menu-trigger" onClick={() => setAccountMenuOpen((value) => !value)}>
+                  Manage account
                 </button>
-                {profileMessage ? <div className="notice">{profileMessage}</div> : null}
-              </form>
-              <button type="button" className="secondary full" onClick={logout}>
-                Sign out
-              </button>
+                {accountMenuOpen ? (
+                  <div className="account-menu">
+                    {session?.user?.role === 'admin' ? (
+                      <>
+                        <Link to="/admin/products" onClick={() => setAccountMenuOpen(false)}>
+                          Manage products
+                        </Link>
+                        <Link to="/admin/orders" onClick={() => setAccountMenuOpen(false)}>
+                          Manage orders
+                        </Link>
+                        <Link to="/admin/users" onClick={() => setAccountMenuOpen(false)}>
+                          Manage users
+                        </Link>
+                      </>
+                    ) : null}
+                    <Link to="/orders" onClick={() => setAccountMenuOpen(false)}>
+                      View orders
+                    </Link>
+                    <Link to="/profile" onClick={() => setAccountMenuOpen(false)}>
+                      Change information
+                    </Link>
+                    <button type="button" className="secondary full" onClick={logout}>
+                      Log out
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             </div>
           ) : (
             <div className="auth-form">

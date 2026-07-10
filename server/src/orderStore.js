@@ -96,6 +96,15 @@ async function listOrders() {
   return memoryOrders.map((order) => ({ ...order }));
 }
 
+async function listOrdersForUser(userId) {
+  if (isMongoReady()) {
+    const records = await OrderModel.find({ userId }).sort({ createdAt: -1 }).lean();
+    return records.map((record) => toPlainOrder(record));
+  }
+
+  return memoryOrders.filter((order) => order.userId === userId).map((order) => ({ ...order }));
+}
+
 async function updateOrderStatus(orderId, status) {
   if (isMongoReady()) {
     const updated = await OrderModel.findOneAndUpdate(
@@ -124,5 +133,6 @@ async function updateOrderStatus(orderId, status) {
 module.exports = {
   createOrder,
   listOrders,
+  listOrdersForUser,
   updateOrderStatus
 };

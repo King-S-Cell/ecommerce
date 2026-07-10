@@ -118,6 +118,53 @@ textarea:focus {
   margin-bottom: 1.5rem;
 }
 
+@media (max-width: 760px) {
+  .auth-shell,
+  .auth-page-card,
+  .profile-page-card {
+    grid-template-columns: 1fr;
+    padding: 1rem;
+  }
+
+  .auth-page-shell {
+    padding: 1rem 0.75rem;
+    place-items: start center;
+  }
+
+  .auth-page-copy {
+    padding: 0.25rem 0;
+  }
+
+  .auth-copy,
+  .auth-card,
+  .auth-page-form {
+    padding: 0.75rem;
+  }
+
+  .auth-help {
+    font-size: 0.92rem;
+  }
+
+  .auth-page-form input,
+  .auth-form input,
+  .auth-page-form button,
+  .auth-form button {
+    min-height: 48px;
+    font-size: 1rem;
+  }
+
+  .auth-tabs,
+  .auth-mode {
+    gap: 0.6rem;
+  }
+
+  .auth-tabs button,
+  .auth-mode button {
+    flex: 1 1 calc(50% - 0.3rem);
+    justify-content: center;
+  }
+}
+
 .auth-copy {
   padding: 1.15rem 1rem;
 }
@@ -143,6 +190,120 @@ textarea:focus {
 .session-card {
   display: grid;
   gap: 0.95rem;
+}
+
+.account-menu-wrapper {
+  position: relative;
+}
+
+.account-menu {
+  position: absolute;
+  inset: calc(100% + 0.6rem) 0 auto 0;
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.75rem;
+  border-radius: 20px;
+  background: rgba(8, 12, 25, 0.98);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow);
+  z-index: 5;
+}
+
+.account-menu a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.8rem 1rem;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
+.profile-page-shell,
+.orders-page-shell,
+.admin-page-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 2rem 1rem;
+}
+
+.profile-page-card,
+.orders-page-card,
+.admin-page-card {
+  width: min(980px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(320px, 0.8fr);
+  gap: 1.5rem;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 32px;
+  padding: 1.5rem;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.profile-page-copy,
+.orders-page-copy,
+.admin-page-copy {
+  padding: 1rem 0.25rem;
+}
+
+.profile-page-copy h1,
+.orders-page-copy h1,
+.admin-page-copy h1 {
+  margin: 0.45rem 0 0.75rem;
+  font-size: clamp(2rem, 4vw, 2.8rem);
+}
+
+.profile-page-copy p,
+.orders-page-copy p,
+.admin-page-copy p {
+  margin: 0 0 1rem;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.profile-page-form-card,
+.orders-page-list,
+.admin-page-panel {
+  background: rgba(255,255,255,0.04);
+  border-radius: 24px;
+  padding: 1rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-page-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.admin-page-nav a {
+  text-decoration: none;
+}
+
+.order-card-item {
+  padding: 0.95rem 1rem;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  display: grid;
+  gap: 0.65rem;
+}
+
+.order-card-item strong {
+  font-size: 1.02rem;
+}
+
+.order-card-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  color: var(--muted);
 }
 
 .auth-page-shell {

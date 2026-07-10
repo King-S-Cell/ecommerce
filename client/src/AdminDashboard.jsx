@@ -4,8 +4,8 @@ function authHeaders(token) {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export default function AdminDashboard({ token, onInventoryChanged }) {
-  const [tab, setTab] = useState('products');
+export default function AdminDashboard({ token, onInventoryChanged, initialTab = 'products' }) {
+  const [tab, setTab] = useState(initialTab);
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [users, setUsers] = useState([]);
@@ -29,6 +29,10 @@ export default function AdminDashboard({ token, onInventoryChanged }) {
 
   const [newProduct, setNewProduct] = useState(emptyProduct);
   const [editProduct, setEditProduct] = useState(null);
+
+  useEffect(() => {
+    setTab(initialTab);
+  }, [initialTab]);
 
   useEffect(() => {
     fetchForTab(tab);

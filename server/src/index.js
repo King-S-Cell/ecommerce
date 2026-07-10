@@ -15,6 +15,7 @@ const {
 const {
   createOrder,
   listOrders,
+  listOrdersForUser,
   updateOrderStatus
 } = require('./orderStore');
 const {
@@ -296,6 +297,15 @@ app.delete(
     }
 
     return response.status(204).send();
+  })
+);
+
+app.get(
+  '/api/orders',
+  authenticateRequest,
+  wrapAsync(async (request, response) => {
+    const orders = await listOrdersForUser(request.auth.sub);
+    response.json(orders);
   })
 );
 
