@@ -11,6 +11,7 @@ export default function AdminDashboard({ token, onInventoryChanged }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [userEdits, setUserEdits] = useState({});
 
   const emptyProduct = {
     name: '',
@@ -32,6 +33,29 @@ export default function AdminDashboard({ token, onInventoryChanged }) {
   useEffect(() => {
     fetchForTab(tab);
   }, [tab]);
+
+  useEffect(() => {
+    if (tab !== 'users') {
+      return;
+    }
+
+    setUserEdits((current) => {
+      const next = { ...current };
+
+      users.forEach((user) => {
+        if (!next[user.id]) {
+          next[user.id] = {
+            name: user.name || '',
+            email: user.email || '',
+            password: '',
+            role: user.role || 'user'
+          };
+        }
+      });
+
+      return next;
+    });
+  }, [tab, users]);
 
   async function fetchForTab(current) {
     setLoading(true);
@@ -196,19 +220,52 @@ export default function AdminDashboard({ token, onInventoryChanged }) {
     }
   }
 
-  async function updateUserRole(id, role) {
+  async function saveUser(id) {
+    const form = userEdits[id] || {};
+    const payload = {
+      ...(form.name ? { name: String(form.name).trim() } : {}),
+      ...(form.email ? { email: String(form.email).trim().toLowerCase() } : {}),
+      ...(form.password ? { password: form.password } : {}),
+      ...(form.role ? { role: form.role } : {})
+    };
+
+    if (!Object.keys(payload).length) {
+      setMessage('Provide a name, email, password, or role change first.');
+      return;
+    }
+
     try {
       const res = await fetch(`/api/admin/users/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
-        body: JSON.stringify({ role })
+        body: JSON.stringify(payload)
       });
 
-      if (!res.ok) throw new Error('Update failed');
+      const data = await res.json();
 
-      const updated = await res.json();
-      setUsers((list) => list.map((item) => (item.id === updated.id ? updated : item)));
+      if (!res.ok) throw new Error(data.message || 'Update failed');
+
+      setUsers((list) => list.map((item) => (item.id === data.id ? { ...item, ...data } : item)));
+      setUserEdits((current) => ({ ...current, [id]: { ...current[id], password: '' } }));
       setMessage('User updated');
+    } catch (err) {
+      setMessage(err.message || 'Failed');
+    }
+  }
+
+  async function deleteUser(id) {
+    if (!confirm('Delete this user?')) return;
+
+    try {
+      const res = await fetch(`/api/admin/users/${id}`, {
+        method: 'DELETE',
+        headers: authHeaders(token)
+      });
+
+      if (!res.ok) throw new Error('Delete failed');
+
+      setUsers((list) => list.filter((item) => item.id !== id));
+      setMessage('User deleted');
     } catch (err) {
       setMessage(err.message || 'Failed');
     }
@@ -367,20 +424,31 @@ export default function AdminDashboard({ token, onInventoryChanged }) {
         <div>
           {users.length === 0 ? <div className="empty-state">No users yet</div> : null}
           <div style={{ display: 'grid', gap: '0.5rem', marginTop: '1rem' }}>
-            {users.map((user) => (
-              <div key={user.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center', padding: '0.75rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)' }}>
-                <div>
-                  <strong>{user.name}</strong>
-                  <div style={{ color: '#9aa3c8' }}>{user.email}</div>
+            {users.map((user) => {
+              const form = userEdits[user.id] || { name: user.name || '', email: user.email || '', password: '', role: user.role || 'user' };
+
+              return (
+                <div key={user.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'flex-start', padding: '0.75rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)' }}>
+                  <div style={{ flex: 1, display: 'grid', gap: '0.4rem' }}>
+                    <strong>{user.name}</strong>
+                    <div style={{ color: '#9aa3c8' }}>{user.email}</div>
+                    <input value={form.name} onChange={(event) => setUserEdits((current) => ({ ...current, [user.id]: { ...form, name: event.target.value } }))} placeholder="Name" />
+                    <input type="email" value={form.email} onChange={(event) => setUserEdits((current) => ({ ...current, [user.id]: { ...form, email: event.target.value } }))} placeholder="Email" />
+                    <input type="password" value={form.password} onChange={(event) => setUserEdits((current) => ({ ...current, [user.id]: { ...form, password: event.target.value } }))} placeholder="New password" />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <select value={form.role} onChange={(event) => setUserEdits((current) => ({ ...current, [user.id]: { ...form, role: event.target.value } }))}>
+                      <option value="user">user</option>
+                      <option value="admin">admin</option>
+                    </select>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button className="secondary small" type="button" onClick={() => saveUser(user.id)}>Save</button>
+                      <button className="secondary small" type="button" onClick={() => deleteUser(user.id)}>Delete</button>
+                    </div>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <select value={user.role} onChange={(event) => updateUserRole(user.id, event.target.value)}>
-                    <option value="user">user</option>
-                    <option value="admin">admin</option>
-                  </select>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       ) : null}

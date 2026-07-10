@@ -27,6 +27,7 @@ const {
 } = require('./productStore');
 const {
   createCustomer,
+  deleteUser,
   ensureAdminSeed,
   findUserByEmail,
   findUserById,
@@ -198,6 +199,20 @@ app.get(
   })
 );
 
+app.patch(
+  '/api/auth/me',
+  authenticateRequest,
+  wrapAsync(async (request, response) => {
+    const updated = await updateUser(request.auth.sub, request.body || {});
+
+    if (!updated) {
+      return response.status(404).json({ message: 'User not found' });
+    }
+
+    return response.json({ user: sanitizeUser(updated) });
+  })
+);
+
 app.get(
   '/api/admin/overview',
   authenticateRequest,
@@ -329,7 +344,22 @@ app.patch(
       return response.status(404).json({ message: 'User not found' });
     }
 
-    return response.json(updated);
+    return response.json(sanitizeUser(updated));
+  })
+);
+
+app.delete(
+  '/api/admin/users/:id',
+  authenticateRequest,
+  requireRole('admin'),
+  wrapAsync(async (request, response) => {
+    const deleted = await deleteUser(request.params.id);
+
+    if (!deleted) {
+      return response.status(404).json({ message: 'User not found' });
+    }
+
+    return response.status(204).send();
   })
 );
 

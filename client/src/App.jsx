@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import AdminDashboard from './AdminDashboard';
 
 const currency = new Intl.NumberFormat('en-US', {
@@ -132,6 +133,9 @@ function App() {
   const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' });
   const [authMessage, setAuthMessage] = useState('');
   const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [profileForm, setProfileForm] = useState({ name: '', email: '', password: '' });
+  const [profileMessage, setProfileMessage] = useState('');
+  const [profileSubmitting, setProfileSubmitting] = useState(false);
   const [inventoryVersion, setInventoryVersion] = useState(0);
 
   useEffect(() => {
@@ -213,6 +217,16 @@ function App() {
       ignore = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (session?.user) {
+      setProfileForm({
+        name: session.user.name || '',
+        email: session.user.email || '',
+        password: ''
+      });
+    }
+  }, [session?.user?.id, session?.user?.email, session?.user?.name]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -346,6 +360,53 @@ function App() {
     }
   }
 
+  async function handleProfileSubmit(event) {
+    event.preventDefault();
+
+    if (!session?.token) {
+      return;
+    }
+
+    const trimmedName = profileForm.name.trim();
+    const trimmedEmail = profileForm.email.trim().toLowerCase();
+    const password = profileForm.password;
+    const payload = {
+      ...(trimmedName ? { name: trimmedName } : {}),
+      ...(trimmedEmail ? { email: trimmedEmail } : {}),
+      ...(password ? { password } : {})
+    };
+
+    if (!Object.keys(payload).length) {
+      setProfileMessage('Add a name, email, or new password to update your account.');
+      return;
+    }
+
+    setProfileSubmitting(true);
+    setProfileMessage('');
+
+    try {
+      const response = await fetch('/api/auth/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders(session.token) },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Profile update failed');
+      }
+
+      setSession((current) => (current ? { ...current, user: data.user } : current));
+      setProfileForm((current) => ({ ...current, password: '' }));
+      setProfileMessage('Profile updated.');
+    } catch (profileError) {
+      setProfileMessage(profileError.message);
+    } finally {
+      setProfileSubmitting(false);
+    }
+  }
+
   function logout() {
     setSession(null);
     setAuthMessage('');
@@ -425,11 +486,10 @@ function App() {
 
       <section className="auth-shell">
         <div className="auth-copy">
-          <span className="eyebrow">Access control</span>
-          <h2>Customer sign-in and admin auth, side by side.</h2>
+          <span className="eyebrow">Account access</span>
+          <h2>Sign in or register on a dedicated page.</h2>
           <p>
-            Customers can register or log in to place orders. Admins use the seeded account to open a protected
-            dashboard with product, order, and user management.
+            The storefront stays on the home page, while customer and admin authentication now lives in a focused experience with its own route.
           </p>
         </div>
 
@@ -444,105 +504,35 @@ function App() {
                 <span>{session.user.email}</span>
               </div>
               <div className="role-badge">{session.user.role}</div>
+              <form className="auth-form" onSubmit={handleProfileSubmit} style={{ marginTop: '1rem' }}>
+                <label>
+                  Full name
+                  <input value={profileForm.name} onChange={(event) => setProfileForm({ ...profileForm, name: event.target.value })} />
+                </label>
+                <label>
+                  Email
+                  <input type="email" value={profileForm.email} onChange={(event) => setProfileForm({ ...profileForm, email: event.target.value })} />
+                </label>
+                <label>
+                  New password
+                  <input type="password" value={profileForm.password} onChange={(event) => setProfileForm({ ...profileForm, password: event.target.value })} autoComplete="new-password" />
+                </label>
+                <button className="primary full" type="submit" disabled={profileSubmitting}>
+                  {profileSubmitting ? 'Saving...' : 'Save profile'}
+                </button>
+                {profileMessage ? <div className="notice">{profileMessage}</div> : null}
+              </form>
               <button type="button" className="secondary full" onClick={logout}>
                 Sign out
               </button>
             </div>
           ) : (
-            <form className="auth-form" onSubmit={handleAuthSubmit}>
-              <div className="auth-tabs">
-                <button
-                  type="button"
-                  className={authTab === 'customer' ? 'chip active' : 'chip'}
-                  onClick={() => {
-                    setAuthTab('customer');
-                    setAuthMessage('');
-                  }}
-                >
-                  Customer
-                </button>
-                <button
-                  type="button"
-                  className={authTab === 'admin' ? 'chip active' : 'chip'}
-                  onClick={() => {
-                    setAuthTab('admin');
-                    setAuthMode('login');
-                    setAuthMessage('');
-                  }}
-                >
-                  Admin
-                </button>
-              </div>
-
-              <div className="auth-mode">
-                {authTab === 'customer' ? (
-                  <>
-                    <button
-                      type="button"
-                      className={authMode === 'login' ? 'chip active' : 'chip'}
-                      onClick={() => setAuthMode('login')}
-                    >
-                      Sign in
-                    </button>
-                    <button
-                      type="button"
-                      className={authMode === 'register' ? 'chip active' : 'chip'}
-                      onClick={() => setAuthMode('register')}
-                    >
-                      Register
-                    </button>
-                  </>
-                ) : (
-                  <span className="auth-note">Admin login only</span>
-                )}
-              </div>
-
-              {authTab === 'customer' && authMode === 'register' ? (
-                <label>
-                  Full name
-                  <input
-                    value={authForm.name}
-                    onChange={(event) => setAuthForm({ ...authForm, name: event.target.value })}
-                    autoComplete="name"
-                    required
-                  />
-                </label>
-              ) : null}
-
-              <label>
-                Email
-                <input
-                  type="email"
-                  value={authForm.email}
-                  onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })}
-                  autoComplete="email"
-                  required
-                />
-              </label>
-
-              <label>
-                Password
-                <input
-                  type="password"
-                  value={authForm.password}
-                  onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })}
-                  autoComplete={authMode === 'register' ? 'new-password' : 'current-password'}
-                  minLength="8"
-                  required
-                />
-              </label>
-
-              <button className="primary full" type="submit" disabled={authSubmitting}>
-                {authSubmitting ? 'Working...' : authTab === 'admin' ? 'Admin sign in' : authMode === 'register' ? 'Create account' : 'Sign in'}
-              </button>
-
-              {authMessage ? <div className="notice">{authMessage}</div> : null}
-
-              <div className="auth-help">
-                <span>Admin demo: admin@nimbus.local</span>
-                <span>Password: Admin123!</span>
-              </div>
-            </form>
+            <div className="auth-form">
+              <p className="auth-note">Use the dedicated sign-in page for customer or admin access.</p>
+              <Link className="primary full" to="/auth" style={{ display: 'inline-flex', justifyContent: 'center', textDecoration: 'none' }}>
+                Go to sign-in page
+              </Link>
+            </div>
           )}
         </div>
       </section>
@@ -621,7 +611,25 @@ function App() {
                 key={product.id}
                 style={{ '--accent-a': product.accentA, '--accent-b': product.accentB }}
               >
-                <button className="product-visual" type="button" onClick={() => setSelectedProduct(product)}>
+                <button
+                  className="product-visual"
+                  type="button"
+                  onClick={() => setSelectedProduct(product)}
+                  style={product.imageUrl ? {
+                    backgroundImage: `linear-gradient(145deg, rgba(255,255,255,0.2), rgba(0,0,0,0.28)), url(${product.imageUrl})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat'
+                  } : {
+                    background: `linear-gradient(145deg, ${product.accentA || '#ddd'}, ${product.accentB || '#333'})`
+                  }}
+                >
+                  {product.imageUrl ? null : (
+                    <span className="placeholder-copy">
+                      <span>{product.badge}</span>
+                      <span>{product.category}</span>
+                    </span>
+                  )}
                   <span className="badge">{product.badge}</span>
                   <span className="orb orb-one" />
                   <span className="orb orb-two" />
@@ -711,7 +719,11 @@ function App() {
           <div className="modal" onClick={(event) => event.stopPropagation()}>
             <div
               className="modal-visual"
-              style={{ '--accent-a': selectedProduct.accentA, '--accent-b': selectedProduct.accentB }}
+              style={selectedProduct.imageUrl ? {
+                backgroundImage: `linear-gradient(145deg, rgba(255,255,255,0.2), rgba(0,0,0,0.28)), url(${selectedProduct.imageUrl})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center'
+              } : { '--accent-a': selectedProduct.accentA, '--accent-b': selectedProduct.accentB }}
             >
               <span className="badge">{selectedProduct.badge}</span>
             </div>
